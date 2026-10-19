@@ -2,7 +2,7 @@ import uuid
 from typing import Annotated
 
 import structlog
-from fastapi import Depends
+from fastapi import Depends, HTTPException, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from src.core.database import DBSession
@@ -19,7 +19,8 @@ security_scheme = HTTPBearer(auto_error=False)
 
 
 async def get_current_user(
-    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(security_scheme)],
+    request: Request,
+    credentials: Annotated[HTTPAuthorizationCredentials, Depends(security_scheme)],
     db: DBSession,
 ) -> User:
     if credentials is None:
@@ -39,6 +40,8 @@ async def get_current_user(
         log.info("token_rejected", reason="revoked", user_id=str(user.id))
         raise TokenInvalidError("Invalid or expired token")
     structlog.contextvars.bind_contextvars(user_id=str(user.id))
+    # The access log runs outside this task; it reads the id from the shared ASGI scope.
+    request.state.user_id = str(user.id)
     return user
 
 
