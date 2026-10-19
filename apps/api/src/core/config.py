@@ -23,6 +23,24 @@ class Settings(BaseSettings):
     LOGIN_LOCKOUT_MINUTES: int = 15
     LOG_LEVEL: str = "INFO"
 
+    # Database connection pool (PostgreSQL only; SQLite ignores these)
+    DB_POOL_SIZE: int = 10
+    DB_MAX_OVERFLOW: int = 20
+    DB_POOL_TIMEOUT: int = 30
+    DB_POOL_RECYCLE_SECONDS: int = 1800
+
+    # Rate limiting (slowapi). Use a shared store such as ``redis://host:6379/0`` when
+    # running more than one worker; the in-memory default is per process.
+    RATE_LIMIT_DEFAULT: str = "200/minute"
+    RATE_LIMIT_LOGIN: str = "10/minute"
+    RATE_LIMIT_STORAGE_URI: str | None = None
+    # Comma-separated proxy addresses whose X-Forwarded-For header is trusted.
+    TRUSTED_PROXY_IPS: str = ""
+
+    @property
+    def trusted_proxy_ips(self) -> frozenset[str]:
+        return frozenset(ip.strip() for ip in self.TRUSTED_PROXY_IPS.split(",") if ip.strip())
+
     model_config = SettingsConfigDict(
         env_file=".env", env_file_encoding="utf-8", case_sensitive=False, extra="ignore"
     )
