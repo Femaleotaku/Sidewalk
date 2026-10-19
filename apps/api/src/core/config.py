@@ -1,7 +1,10 @@
 # apps/api/src/core/config.py
+import json
 from functools import lru_cache
+from typing import Annotated, Any
 
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import field_validator
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 
 class Settings(BaseSettings):
@@ -16,30 +19,31 @@ class Settings(BaseSettings):
     # Fields with sensible defaults
     ENVIRONMENT: str = "development"
     API_VERSION: str = "0.1.0"
-    CORS_ORIGINS: list[str] = ["http://localhost:3000", "http://localhost:8081"]
+    # Accepts a JSON array or a comma-separated list of origins.
+    CORS_ORIGINS: Annotated[list[str], NoDecode] = ["http://localhost:3000", "http://localhost:8081"]
     JWT_ALGORITHM: str = "HS256"
     JWT_EXPIRES_MINUTES: int = 1440  # 24 hours
     LOGIN_MAX_ATTEMPTS: int = 5
     LOGIN_LOCKOUT_MINUTES: int = 15
-    LOG_LEVEL: str = "INFO"
-
     # Database connection pool (PostgreSQL only; SQLite ignores these)
     DB_POOL_SIZE: int = 10
     DB_MAX_OVERFLOW: int = 20
-    DB_POOL_TIMEOUT: int = 30
-    DB_POOL_RECYCLE_SECONDS: int = 1800
 
-    # Rate limiting (slowapi). Use a shared store such as ``redis://host:6379/0`` when
-    # running more than one worker; the in-memory default is per process.
+    # Rate limiting (slowapi)
     RATE_LIMIT_DEFAULT: str = "200/minute"
     RATE_LIMIT_LOGIN: str = "10/minute"
-    RATE_LIMIT_STORAGE_URI: str | None = None
-    # Comma-separated proxy addresses whose X-Forwarded-For header is trusted.
-    TRUSTED_PROXY_IPS: str = ""
 
-    @property
-    def trusted_proxy_ips(self) -> frozenset[str]:
-        return frozenset(ip.strip() for ip in self.TRUSTED_PROXY_IPS.split(",") if ip.strip())
+    LOG_LEVEL: str = "INFO"
+
+    @field_validator("CORS_ORIGINS", mode="before")
+    @classmethod
+    def parse_cors_origins(cls, value: Any) -> Any:
+        if isinstance(value, str):
+            text = value.strip()
+            if text.startswith("["):
+                return json.loads(text)
+            return [origin.strip() for origin in text.split(",") if origin.strip()]
+        return value
 
     model_config = SettingsConfigDict(
         env_file=".env", env_file_encoding="utf-8", case_sensitive=False, extra="ignore"
