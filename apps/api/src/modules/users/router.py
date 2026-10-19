@@ -2,8 +2,8 @@ from fastapi import APIRouter
 
 from src.core.database import DBSession
 from src.core.dependencies import CurrentUser
-from src.modules.users import service as users_service
 from src.modules.auth.schemas import AuthResponse
+from src.modules.users import service as users_service
 from src.modules.users.schemas import (
     ChangePasswordRequest,
     UpdateProfileRequest,
