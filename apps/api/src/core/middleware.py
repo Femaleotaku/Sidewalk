@@ -35,6 +35,18 @@ def setup_cors(app: FastAPI, settings: Settings) -> None:
     )
 
 
+API_CSP = "default-src 'self'"
+DOCS_PATHS = ("/docs", "/redoc")
+DOCS_CSP = (
+    "default-src 'self'; "
+    "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+    "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com; "
+    "font-src 'self' https://fonts.gstatic.com data:; "
+    "img-src 'self' data: https://fastapi.tiangolo.com https://cdn.redoc.ly; "
+    "worker-src 'self' blob:"
+)
+
+
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     def __init__(self, app: FastAPI, environment: str = "development"):
         super().__init__(app)
@@ -44,9 +56,13 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response = await call_next(request)
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"
-        response.headers["X-XSS-Protection"] = "1; mode=block"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-        response.headers["Content-Security-Policy"] = "default-src 'self'"
+        response.headers["Permissions-Policy"] = "camera=(), geolocation=(), microphone=()"
+        # The interactive docs load their UI from a CDN, so they get a relaxed policy.
+        # Everything else (the JSON API) keeps the strict one.
+        response.headers["Content-Security-Policy"] = (
+            DOCS_CSP if request.url.path.startswith(DOCS_PATHS) else API_CSP
+        )
         if self.environment == "production":
             response.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains"
         return response
